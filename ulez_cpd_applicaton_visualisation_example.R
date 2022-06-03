@@ -74,6 +74,8 @@ ULEZ_example_detected_cps = map2_dfr(.x = 7, .y = ULEZ_total_cp_code,
                                                            epsilon = 1e-9, date = TRUE))
 
 
+ULEZ_example_coinciding_CPs = coinciding_cp_generator(ULEZ_example_detected_cps)
+
 ULEZ_example_detected_cps %>%
   filter(date >= as.Date("2019-03-01") & date <= as.Date("2019-06-30"), 
          variables == "Input dataset") %>% 
@@ -85,6 +87,10 @@ ULEZ_example_detected_cps %>%
   geom_point(data = filter(ULEZ_example_detected_cps,
                            cp==TRUE & date >= as.POSIXct("2019-03-15") & variables %in% c("Input dataset"))
              , size  = 3, colour = "blue")+
+  geom_point(data = filter(ULEZ_example_detected_cps,
+                           cp==TRUE & date >= as.POSIXct("2019-03-15") & variables %in% c("Input dataset")
+                           & date %in% ULEZ_example_coinciding_CPs)
+             , size  = 4, colour = "red")+
   labs(x= "Date", y = "Rolling 7 day Various Units", colour = "ULEZ data sources")+
   facet_grid(df_label~., scales = "free_y")+
   ggtitle("Applied CPD example - ULEZ AQ vs compliance")
