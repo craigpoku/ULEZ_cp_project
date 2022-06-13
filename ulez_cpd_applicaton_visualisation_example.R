@@ -58,15 +58,22 @@ compliance_statistics_cp_df = ULEZ_compliance_df  %>%
 
 #Creates multivariant TS df
 
-ULEZ_total_cp_df = rbind(cp_roadside_no2_df_ULEZ)
+ULEZ_total_cp_df = rbind(compliance_statistics_cp_df)
 
 ULEZ_total_cp_code = unique(as.character(ULEZ_total_cp_df$df_header))
 
 #applies CP to dataframe, in this case ULEZ
 
-ULEZ_example_detected_cps = map2_dfr(.x = 25, .y = ULEZ_total_cp_code,
+ULEZ_example_detected_cps_window_sen = map2_dfr(.x = c(6, 25, 50), .y = ULEZ_total_cp_code,
                   .f = ~multi_var_ts_gradient_cp_detection(df = ULEZ_total_cp_df,
-                                                           .x, .y, cp_factor = 2.5,
+                                                           window_length_vector = .x, .y, 
+                                                           cp_factor = 2.5,
+                                                           epsilon = 1e-9, date = TRUE))
+
+ULEZ_example_detected_cps_cp_factor_sen = map2_dfr(.x = c(1, 2.5, 5), .y = ULEZ_total_cp_code,
+                  .f = ~multi_var_ts_gradient_cp_detection(df = ULEZ_total_cp_df,
+                                                           window_length_vector = 25, .y, 
+                                                           cp_factor = .x,
                                                            epsilon = 1e-9, date = TRUE))
 
 filter_ULEZ_df = ULEZ_total_cp_df %>%
@@ -86,17 +93,31 @@ ULEZ_example_coinciding_CPs = coinciding_cp_generator(ULEZ_example_detected_cps)
 theme_set(theme_gray(base_size = 20))
 
 
-ULEZ_example_detected_cps %>%
-  filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-06-30"),
+ULEZ_example_detected_cps_window_sen %>%
+  filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-07-30"),
          variables != "r.squareds") %>%
   ggplot(aes(x = date, y = value)) +
   geom_line(aes(colour=variables), lwd = 1.5)+
-  geom_vline(data = filter(ULEZ_example_detected_cps,
+  geom_vline(data = filter(ULEZ_example_detected_cps_window_sen,
                            cp==TRUE, date >= as.POSIXct("2019-04-01"),
                            variables != "r.squareds"),
              aes(xintercept = date), size  = 1, colour = "blue")+
   labs(x= "Date", y = "Various Units", colour = "Variables")+
-  facet_grid(vars(variables), vars(window_length_level), scales = "free_y")
+  facet_grid(vars(variables), vars(window_length_level), scales = "free_y")+
+  ggtitle("ULEZ traffic count: cp_factor = 2.5")
+
+ULEZ_example_detected_cps_cp_factor_sen %>%
+  filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-07-30"),
+         variables != "r.squareds") %>%
+  ggplot(aes(x = date, y = value)) +
+  geom_line(aes(colour=variables), lwd = 1.5)+
+  geom_vline(data = filter(ULEZ_example_detected_cps_cp_factor_sen,
+                           cp==TRUE, date >= as.POSIXct("2019-04-01"),
+                           variables != "r.squareds"),
+             aes(xintercept = date), size  = 1, colour = "blue")+
+  labs(x= "Date", y = "Various Units", colour = "Variables")+
+  facet_grid(vars(variables), vars(cp_factor_sensitivity), scales = "free_y")+
+  ggtitle("ULEZ traffic count: Window length = 25 days")
 
 #Raw data with no applied CPD
 
