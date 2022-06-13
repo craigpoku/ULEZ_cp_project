@@ -24,9 +24,6 @@ ULEZ_compliance_df = read.csv("~/Github/live_change_point_development/ULEZVehicl
   drop_na()
 
 
-
-win_length_vector = c(7)
-
 #prepared functions to be applied in the CP programme. Can this section be streamlined?
 
 cp_urban_background_no2_df_all = normalised_urban_background_no2_all_sites_reformat %>%
@@ -36,7 +33,7 @@ cp_urban_background_no2_df_all = normalised_urban_background_no2_all_sites_refor
   rename(value = normal_mean)
 
 cp_roadside_no2_df_all = normalised_roadside_no2_all_sites_reformat %>%
-  filter(date >= as.Date("2019-01-01") & date <= as.Date("2019-06-30")) %>%
+  filter(date >= as.Date("2019-01-01") & date <= as.Date("2019-07-30")) %>%
   select(date, normal_mean)%>%
   mutate(df_header = "Roadside NO2") %>%
   rename(value = normal_mean)
@@ -72,12 +69,22 @@ ULEZ_example_detected_cps = map2_dfr(.x = 25, .y = ULEZ_total_cp_code,
                                                            .x, .y, cp_factor = 2.5,
                                                            epsilon = 1e-9, date = TRUE))
 
+filter_ULEZ_df = ULEZ_total_cp_df %>%
+  filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-07-30"))
+mean_cp_algorithm = cpt.mean(filter_ULEZ_df$value)
+mean_output = data.frame(x1 = filter_ULEZ_df$date[1], 
+                         x2 = filter_ULEZ_df$date[53],
+                         x3 = filter_ULEZ_df$date[121], 
+                         y1 = 71.9, 
+                         y2 = 67.7)
+
 test = change_point_model_statistics(ULEZ_example_detected_cps, 25, FALSE)
 
 
 ULEZ_example_coinciding_CPs = coinciding_cp_generator(ULEZ_example_detected_cps)
 
 theme_set(theme_gray(base_size = 20))
+
 
 ULEZ_example_detected_cps %>%
   filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-06-30"),
@@ -91,21 +98,52 @@ ULEZ_example_detected_cps %>%
   labs(x= "Date", y = "Various Units", colour = "Variables")+
   facet_grid(vars(variables), vars(window_length_level), scales = "free_y")
 
+#Raw data with no applied CPD
+
 ULEZ_example_detected_cps %>%
   filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-07-30"), 
          variables == "Input dataset") %>% 
   ggplot(aes(x = date, y = value)) + 
   geom_line(aes(colour=df_label), lwd = 2)+
+  annotate("rect", xmin = as.POSIXct("2019-04-08"), 
+           xmax = as.POSIXct("2019-07-30"), ymin = -Inf, ymax = Inf, 
+           alpha = .2)+
+  labs(x= "Date", colour = "ULEZ data sources")+ylab(quickText("Normalised NO2 (ug/m3)"))+
+  facet_grid(df_label~., scales = "free_y")+
+  ggtitle("Applied CPD example - ULEZ")
+
+#Just mean scheme
+
+ULEZ_example_detected_cps %>%
+  filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-07-30"), 
+         variables == "Input dataset") %>% 
+  ggplot(aes(x = date, y = value)) + 
+  geom_line(aes(colour=df_label), lwd = 2)+
+  geom_segment(aes(x = x1, y = y1, xend = x2, yend = y1), colour = "black", data = mean_output, lwd = 1.2)+
+  geom_segment(aes(x = x2, y = y2, xend = x3, yend = y2), colour = "black", data = mean_output, lwd = 1.2)+
+  annotate("rect", xmin = as.POSIXct("2019-04-08"), 
+           xmax = as.POSIXct("2019-07-30"), ymin = -Inf, ymax = Inf, 
+           alpha = .2)+
+  labs(x= "Date", colour = "ULEZ data sources")+ylab(quickText("Normalised NO2 (ug/m3)"))+
+  facet_grid(df_label~., scales = "free_y")+
+  ggtitle("Applied CPD example - ULEZ")
+
+#With both mean scheme and new scheme
+
+ULEZ_example_detected_cps %>%
+  filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-07-30"), 
+         variables == "Input dataset") %>% 
+  ggplot(aes(x = date, y = value)) + 
+  geom_line(aes(colour=df_label), lwd = 2)+
+  geom_segment(aes(x = x1, y = y1, xend = x2, yend = y1), colour = "black", data = mean_output, lwd = 1.2)+
+  geom_segment(aes(x = x2, y = y2, xend = x3, yend = y2), colour = "black", data = mean_output, lwd = 1.2)+
   geom_vline(data = filter(ULEZ_example_detected_cps,
                            cp==TRUE & date >= as.POSIXct("2019-04-01") & variables %in% c("Input dataset")),
              aes(xintercept = date), colour = "blue", size = 1.2)+
   geom_vline(data = filter(ULEZ_example_detected_cps,
                            cp==TRUE & date >= as.POSIXct("2019-04-01") & variables %in% c("Input dataset")
                            & date %in% ULEZ_example_coinciding_CPs),
-             aes(xintercept = date), colour = "red", size = 1.2)+ 
-  geom_line(data = filter(test, date >= as.Date("2019-04-01") & date <= as.Date("2019-07-30"),
-                          variables == "Approxed f(x)"), colour = "green", 
-            linetype="dashed", lwd = 1.5)+
+             aes(xintercept = date), colour = "red", size = 1.2)+
   annotate("rect", xmin = as.POSIXct("2019-04-08"), 
            xmax = as.POSIXct("2019-07-30"), ymin = -Inf, ymax = Inf, 
            alpha = .2)+
