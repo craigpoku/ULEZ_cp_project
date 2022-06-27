@@ -33,7 +33,7 @@ cp_urban_background_no2_df_all = normalised_urban_background_no2_all_sites_refor
   rename(value = normal_mean)
 
 cp_roadside_no2_df_all = normalised_roadside_no2_all_sites_reformat %>%
-  filter(date >= as.Date("2019-01-01") & date <= as.Date("2019-07-30")) %>%
+  filter(date >= as.Date("2019-03-01") & date <= as.Date("2019-07-30")) %>%
   select(date, normal_mean)%>%
   mutate(df_header = "Roadside NO2") %>%
   rename(value = normal_mean)
@@ -45,7 +45,7 @@ cp_roadside_pm25_df_ULEZ = normalised_roadside_pm25_ULEZ_reformat %>%
   rename(value = normal_mean)
 
 cp_roadside_no2_df_ULEZ = normalised_roadside_no2_ULEZ_reformat %>%
-  filter(date >= as.Date("2019-01-01") & date <= as.Date("2019-07-30")) %>%
+  filter(date >= as.Date("2019-03-01") & date <= as.Date("2019-07-30")) %>%
   select(date, normal_mean)%>%
   mutate(df_header = "Roadside NO2") %>%
   rename(value = normal_mean)
@@ -64,10 +64,12 @@ ULEZ_total_cp_code = unique(as.character(ULEZ_total_cp_df$df_header))
 
 #applies CP to dataframe, in this case ULEZ
 
-ULEZ_example_detected_cps = map2_dfr(.x = 25, .y = ULEZ_total_cp_code,
-                  .f = ~multi_var_ts_gradient_cp_detection(df = ULEZ_total_cp_df,
-                                                           .x, .y, cp_factor = 2.5,
-                                                           epsilon = 1e-9, date = TRUE))
+sd_v = 1
+day_window = c(4,5,6,7)
+
+ULEZ_example_detected_cps = map2_dfr(.x = day_window, .y = ULEZ_total_cp_code,
+                  .f = ~multi_var_ts_gradient_cp_detection_new(df = ULEZ_total_cp_df,
+                                                           .x, .y, sd_value = sd_v, date = TRUE))
 
 filter_ULEZ_df = ULEZ_total_cp_df %>%
   filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-07-30"))
@@ -85,17 +87,30 @@ ULEZ_example_coinciding_CPs = coinciding_cp_generator(ULEZ_example_detected_cps)
 
 theme_set(theme_gray(base_size = 20))
 
+ULEZ_summarise_stats = filter(ULEZ_example_detected_cps, variables == "3. 2nd derivative") %>% 
+  group_by(window_length_level) %>% 
+  summarise(mean_value = mean(value), lower = mean(value) - sd_v*sd(value), 
+            upper = mean(value) + sd_v*sd(value)) %>%
+  mutate(variables = "3. 2nd derivative")
 
 ULEZ_example_detected_cps %>%
   filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-06-30"),
-         variables != "r.squareds") %>%
+         variables %in% c("1. Input dataset", "3. 2nd derivative", "diff")) %>%
   ggplot(aes(x = date, y = value)) +
   geom_line(aes(colour=variables), lwd = 1.5)+
   geom_vline(data = filter(ULEZ_example_detected_cps,
                            cp==TRUE, date >= as.POSIXct("2019-04-01"),
-                           variables != "r.squareds"),
+                           variables == "1. Input dataset"),
              aes(xintercept = date), size  = 1, colour = "blue")+
   labs(x= "Date", y = "Various Units", colour = "Variables")+
+  geom_hline(data = filter(ULEZ_summarise_stats, variables == "3. 2nd derivative"),
+             aes(yintercept = mean_value), size  = 1, colour = "red")+
+  geom_hline(data = filter(ULEZ_summarise_stats, variables == "3. 2nd derivative"),
+             aes(yintercept = lower), size  = 0.8, colour = "red",
+             linetype = 2)+
+  geom_hline(data = filter(ULEZ_summarise_stats, variables == "3. 2nd derivative"),
+             aes(yintercept = upper), size  = 0.8, colour = "red",
+             linetype = 2) +
   facet_grid(vars(variables), vars(window_length_level), scales = "free_y")
 
 #Raw data with no applied CPD
@@ -160,3 +175,5 @@ test %>%
   ggtitle("Applied CPD example - ULEZ")
 
 
+filter(ULEZ_example_detected_cps, variables == "2nd derivative")%>% group_by(window_length_level) %>% 
+  summarise(mean(value), mean(value) - sd_v*sd(value), mean(value) + sd_v*sd(value))
