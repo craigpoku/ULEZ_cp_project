@@ -20,6 +20,7 @@ multi_var_ts_gradient_cp_detection_new = function(df, window_length_vector, df_h
              df_label = df_header_code,
              window_length_level = as.factor(window_length_vector),
              derv_2nd = as.numeric(pracma::gradient(grad)),
+             diff = derv_2nd-lag(derv_2nd),
              cp = derv_2nd > mean(derv_2nd, na.rm = TRUE) + sd_value*sd(derv_2nd, na.rm = TRUE) |
                   derv_2nd < mean(derv_2nd, na.rm = TRUE) - sd_value*sd(derv_2nd, na.rm = TRUE)
       ) %>%rename("1. Input dataset" = data,
@@ -31,7 +32,7 @@ multi_var_ts_gradient_cp_detection_new = function(df, window_length_vector, df_h
                    names_to = "variables")%>%
       mutate(variables = factor(variables, 
                                 levels = c("1. Input dataset", "2. Rolling gradient", "3. 2nd derivative"
-                                           , "r.squareds")))
+                                           , "r.squareds", "diff")))
   }
   else{
     roll_regression = rollRegres::roll_regres(value ~ index, df_filter, 
@@ -47,6 +48,7 @@ multi_var_ts_gradient_cp_detection_new = function(df, window_length_vector, df_h
              df_label = df_header_code,
              window_length_level = as.factor(window_length_vector),
              derv_2nd = as.numeric(pracma::gradient(grad)),
+             diff = derv_2nd-lag(derv_2nd),
              #min(which(v > 100))
              cp = derv_2nd > mean(derv_2nd, na.rm = TRUE) + sd_value*sd(derv_2nd, na.rm = TRUE) |
                   derv_2nd < mean(derv_2nd, na.rm = TRUE) - sd_value*sd(derv_2nd, na.rm = TRUE)
@@ -59,7 +61,7 @@ multi_var_ts_gradient_cp_detection_new = function(df, window_length_vector, df_h
                    names_to = "variables")%>%
       mutate(variables = factor(variables, 
                                 levels = c("1. Input dataset", "2. Rolling gradient", "3. 2nd derivative"
-                                           , "r.squareds")))
+                                           , "r.squareds", "diff")))
   
     
   }
