@@ -58,7 +58,7 @@ compliance_statistics_cp_df = ULEZ_compliance_df  %>%
 
 #Creates multivariant TS df
 
-ULEZ_total_cp_df = rbind(cp_roadside_no2_df_ULEZ)
+ULEZ_total_cp_df = rbind(compliance_statistics_cp_df)
 
 ULEZ_total_cp_code = unique(as.character(ULEZ_total_cp_df$df_header))
 
@@ -93,16 +93,19 @@ ULEZ_summarise_stats = filter(ULEZ_example_detected_cps, variables == "3. 2nd de
             upper = mean(value) + sd_v*sd(value)) %>%
   mutate(variables = "3. 2nd derivative")
 
+
 ULEZ_example_detected_cps %>%
   filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-06-30"),
          variables %in% c("1. Input dataset", "3. 2nd derivative", "diff")) %>%
+
   ggplot(aes(x = date, y = value)) +
   geom_line(aes(colour=variables), lwd = 1.5)+
-  geom_vline(data = filter(ULEZ_example_detected_cps,
+  geom_vline(data = filter(ULEZ_example_detected_cps_window_sen,
                            cp==TRUE, date >= as.POSIXct("2019-04-01"),
                            variables == "1. Input dataset"),
              aes(xintercept = date), size  = 1, colour = "blue")+
   labs(x= "Date", y = "Various Units", colour = "Variables")+
+
   geom_hline(data = filter(ULEZ_summarise_stats, variables == "3. 2nd derivative"),
              aes(yintercept = mean_value), size  = 1, colour = "red")+
   geom_hline(data = filter(ULEZ_summarise_stats, variables == "3. 2nd derivative"),
@@ -113,19 +116,6 @@ ULEZ_example_detected_cps %>%
              linetype = 2) +
   facet_grid(vars(variables), vars(window_length_level), scales = "free_y")
 
-#Raw data with no applied CPD
-
-ULEZ_example_detected_cps %>%
-  filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-07-30"), 
-         variables == "Input dataset") %>% 
-  ggplot(aes(x = date, y = value)) + 
-  geom_line(aes(colour=df_label), lwd = 2)+
-  annotate("rect", xmin = as.POSIXct("2019-04-08"), 
-           xmax = as.POSIXct("2019-07-30"), ymin = -Inf, ymax = Inf, 
-           alpha = .2)+
-  labs(x= "Date", colour = "ULEZ data sources")+ylab(quickText("Normalised NO2 (ug/m3)"))+
-  facet_grid(df_label~., scales = "free_y")+
-  ggtitle("Applied CPD example - ULEZ")
 
 #Just mean scheme
 
