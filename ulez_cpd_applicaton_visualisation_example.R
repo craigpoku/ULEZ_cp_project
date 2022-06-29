@@ -64,12 +64,12 @@ ULEZ_total_cp_code = unique(as.character(ULEZ_total_cp_df$df_header))
 
 #applies CP to dataframe, in this case ULEZ
 
-sd_v = 1
+sd_v = 3
 day_window = c(4,5,6,7)
 
 ULEZ_example_detected_cps = map2_dfr(.x = day_window, .y = ULEZ_total_cp_code,
                   .f = ~multi_var_ts_gradient_cp_detection_new(df = ULEZ_total_cp_df,
-                                                           .x, .y, sd_value = sd_v, date = TRUE))
+                                                           .x, .y, z_value = sd_v, date = TRUE))
 
 filter_ULEZ_df = ULEZ_total_cp_df %>%
   filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-07-30"))
@@ -89,23 +89,21 @@ theme_set(theme_gray(base_size = 20))
 
 ULEZ_summarise_stats = filter(ULEZ_example_detected_cps, variables == "3. 2nd derivative") %>% 
   group_by(window_length_level) %>% 
-  summarise(mean_value = mean(value), lower = mean(value) - sd_v*sd(value), 
-            upper = mean(value) + sd_v*sd(value)) %>%
+  summarise(mean_value = mean(value), lower = mean(value) - (sd_v*sd(value))/n(), 
+            upper = mean(value) + (sd_v*sd(value))/n(), n = n()) %>%
   mutate(variables = "3. 2nd derivative")
 
 
 ULEZ_example_detected_cps %>%
   filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-06-30"),
-         variables %in% c("1. Input dataset", "3. 2nd derivative", "diff")) %>%
-
+         variables %in% c("1. Input dataset", "3. 2nd derivative")) %>%
   ggplot(aes(x = date, y = value)) +
   geom_line(aes(colour=variables), lwd = 1.5)+
-  geom_vline(data = filter(ULEZ_example_detected_cps_window_sen,
-                           cp==TRUE, date >= as.POSIXct("2019-04-01"),
+  geom_vline(data = filter(ULEZ_example_detected_cps,
+                           cp_marker==TRUE, date >= as.POSIXct("2019-04-01"),
                            variables == "1. Input dataset"),
              aes(xintercept = date), size  = 1, colour = "blue")+
   labs(x= "Date", y = "Various Units", colour = "Variables")+
-
   geom_hline(data = filter(ULEZ_summarise_stats, variables == "3. 2nd derivative"),
              aes(yintercept = mean_value), size  = 1, colour = "red")+
   geom_hline(data = filter(ULEZ_summarise_stats, variables == "3. 2nd derivative"),

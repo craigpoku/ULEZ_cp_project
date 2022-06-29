@@ -1,7 +1,7 @@
 #-----------Updated function that determines the CP based on ratio of previous to current point using the 2nd derivative of a univariant time series ----------
 
 multi_var_ts_gradient_cp_detection_new = function(df, window_length_vector, df_header_code, 
-                                              sd_value, date = TRUE){
+                                              z_value, date = TRUE){
   
   df_filter = df %>%
     filter(df_header == df_header_code)
@@ -20,19 +20,21 @@ multi_var_ts_gradient_cp_detection_new = function(df, window_length_vector, df_h
              df_label = df_header_code,
              window_length_level = as.factor(window_length_vector),
              derv_2nd = as.numeric(pracma::gradient(grad)),
-             diff = derv_2nd-lag(derv_2nd),
-             cp = derv_2nd > mean(derv_2nd, na.rm = TRUE) + sd_value*sd(derv_2nd, na.rm = TRUE) |
-                  derv_2nd < mean(derv_2nd, na.rm = TRUE) - sd_value*sd(derv_2nd, na.rm = TRUE)
+             cp = derv_2nd > mean(derv_2nd, na.rm = TRUE) + (z_value*sd(derv_2nd, na.rm = TRUE))/sqrt(n()) |
+                  derv_2nd < mean(derv_2nd, na.rm = TRUE) - (z_value*sd(derv_2nd, na.rm = TRUE))/sqrt(n()),
+             cp = as.numeric(cp),
+             cp_test = zoo::rollmax(cp, window_length_vector, align = "right", fill = NA),
+             cp_marker = lag(cp_test) < cp_test
       ) %>%rename("1. Input dataset" = data,
                   "2. Rolling gradient" = grad,
                   "3. 2nd derivative" = derv_2nd)%>%
       select(-"(Intercept)") %>%
       drop_na() %>%
-      pivot_longer(-c(date, window_length_level,df_label, cp), 
+      pivot_longer(-c(date, window_length_level,df_label, cp, cp_test, cp_marker), 
                    names_to = "variables")%>%
       mutate(variables = factor(variables, 
                                 levels = c("1. Input dataset", "2. Rolling gradient", "3. 2nd derivative"
-                                           , "r.squareds", "diff")))
+                                           , "r.squareds")))
   }
   else{
     roll_regression = rollRegres::roll_regres(value ~ index, df_filter, 
@@ -48,20 +50,22 @@ multi_var_ts_gradient_cp_detection_new = function(df, window_length_vector, df_h
              df_label = df_header_code,
              window_length_level = as.factor(window_length_vector),
              derv_2nd = as.numeric(pracma::gradient(grad)),
-             diff = derv_2nd-lag(derv_2nd),
              #min(which(v > 100))
-             cp = derv_2nd > mean(derv_2nd, na.rm = TRUE) + sd_value*sd(derv_2nd, na.rm = TRUE) |
-                  derv_2nd < mean(derv_2nd, na.rm = TRUE) - sd_value*sd(derv_2nd, na.rm = TRUE)
+             cp = !(derv_2nd %in% c(mean(derv_2nd, na.rm = TRUE) - (z_value*sd(derv_2nd, na.rm = TRUE))/sqrt(n()),
+                  mean(derv_2nd, na.rm = TRUE) + (z_value*sd(derv_2nd, na.rm = TRUE))/sqrt(n()))),
+             cp = as.numeric(cp),
+             cp_test = zoo::rollmax(cp, window_length_vector, align = "right", fill = NA),
+             cp_marker = lag(cp_test) < cp_test
       ) %>%rename("1. Input dataset" = data,
                   "2. Rolling gradient" = grad,
                   "3. 2nd derivative" = derv_2nd)%>%
       select(-"(Intercept)") %>%
       drop_na() %>%
-      pivot_longer(-c(index, window_length_level,df_label, cp), 
+      pivot_longer(-c(index, window_length_level,df_label, cp, cp_test, cp_marker), 
                    names_to = "variables")%>%
       mutate(variables = factor(variables, 
                                 levels = c("1. Input dataset", "2. Rolling gradient", "3. 2nd derivative"
-                                           , "r.squareds", "diff")))
+                                           , "r.squareds")))
   
     
   }
