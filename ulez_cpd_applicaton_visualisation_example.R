@@ -45,7 +45,7 @@ cp_roadside_pm25_df_ULEZ = normalised_roadside_pm25_ULEZ_reformat %>%
   rename(value = normal_mean)
 
 cp_roadside_no2_df_ULEZ = normalised_roadside_no2_ULEZ_reformat %>%
-  filter(date >= as.Date("2019-03-01") & date <= as.Date("2019-07-30")) %>%
+  filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-07-30")) %>%
   select(date, normal_mean)%>%
   mutate(df_header = "Roadside NO2") %>%
   rename(value = normal_mean)
@@ -58,18 +58,19 @@ compliance_statistics_cp_df = ULEZ_compliance_df  %>%
 
 #Creates multivariant TS df
 
-ULEZ_total_cp_df = rbind(compliance_statistics_cp_df)
+ULEZ_total_cp_df = rbind(cp_roadside_no2_df_ULEZ)
 
 ULEZ_total_cp_code = unique(as.character(ULEZ_total_cp_df$df_header))
 
 #applies CP to dataframe, in this case ULEZ
 
-sd_v = 3
-day_window = c(4,5,6,7)
+sd_v = 2
+per_confidence = 95
+day_window = c(4, 5, 6, 7, 8, 9, 10)
 
 ULEZ_example_detected_cps = map2_dfr(.x = day_window, .y = ULEZ_total_cp_code,
                   .f = ~multi_var_ts_gradient_cp_detection_new(df = ULEZ_total_cp_df,
-                                                           .x, .y, z_value = sd_v, date = TRUE))
+                                                           .x, .y, sd_value = sd_v, date = TRUE))
 
 filter_ULEZ_df = ULEZ_total_cp_df %>%
   filter(date >= as.Date("2019-04-01") & date <= as.Date("2019-07-30"))
@@ -89,8 +90,10 @@ theme_set(theme_gray(base_size = 20))
 
 ULEZ_summarise_stats = filter(ULEZ_example_detected_cps, variables == "3. 2nd derivative") %>% 
   group_by(window_length_level) %>% 
-  summarise(mean_value = mean(value), lower = mean(value) - (sd_v*sd(value))/n(), 
-            upper = mean(value) + (sd_v*sd(value))/n(), n = n()) %>%
+  summarise(mean_value = mean(value, na.rm  = TRUE),
+            lower = mean(value) - sd_v*sd(value), 
+            upper = mean(value) + sd_v*sd(value),
+            n = n()) %>%
   mutate(variables = "3. 2nd derivative")
 
 
@@ -100,7 +103,7 @@ ULEZ_example_detected_cps %>%
   ggplot(aes(x = date, y = value)) +
   geom_line(aes(colour=variables), lwd = 1.5)+
   geom_vline(data = filter(ULEZ_example_detected_cps,
-                           cp_marker==TRUE, date >= as.POSIXct("2019-04-01"),
+                           cp_marker == TRUE, date >= as.POSIXct("2019-03-01"),
                            variables == "1. Input dataset"),
              aes(xintercept = date), size  = 1, colour = "blue")+
   labs(x= "Date", y = "Various Units", colour = "Variables")+
@@ -112,7 +115,9 @@ ULEZ_example_detected_cps %>%
   geom_hline(data = filter(ULEZ_summarise_stats, variables == "3. 2nd derivative"),
              aes(yintercept = upper), size  = 0.8, colour = "red",
              linetype = 2) +
-  facet_grid(vars(variables), vars(window_length_level), scales = "free_y")
+  facet_grid(vars(variables), vars(window_length_level), scales = "free_y")+
+  ggtitle(paste("Standard deviation from 2nd derivative mean:",
+                as.character(sd_v), ",", as.character(per_confidence), "%"))
 
 
 #Just mean scheme
